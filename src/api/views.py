@@ -3,18 +3,19 @@ api/routes.py
 
 Contains the definitions for all of the end-points available to request.
 
-The intention of this module is to remain as simplistic and clutter-free as possible
+This module is to remain as clutter-free as possible, delegating to services or views modules
 such that the end-point definitions are easily comprehendable and maintainable.
 """
-from flask import render_template, request, jsonify, redirect
+from flask import render_template, request, jsonify, redirect, url_for
 import markdown
 from os.path import dirname, join
 
-from api import api
-from api.services import upload_file, get_metadata, get_metadata_collection, query_metadata_by_tag
+from src.api import flask_api
+from src.service_layer.upload import file_uploader
+from src.service_layer.view_builder import get_metadata, get_metadata_collection, query_metadata_by_tag
 
-@api.route('/')
-def index() -> str:
+@flask_api.route('/')
+def root_endpoint() -> str:
     ''' The API root page.
     
     Args:
@@ -24,12 +25,12 @@ def index() -> str:
         md (str):
             The README markdown translated into HTML.
     '''
-    with open(join(dirname(api.root_path), 'README.md'), 'r') as readme:
+    with open(join(dirname(dirname(flask_api.root_path)), 'README.md'), 'r') as readme:
         md = markdown.markdown(readme.read())
     return md
 
-@api.route('/task')
-def task_index() -> str:
+@flask_api.route('/task')
+def task_endpoint() -> str:
     ''' The API technical task information.
     
     Args:
@@ -39,17 +40,17 @@ def task_index() -> str:
         md (str):
             The task information markdown translated into HTML.
     '''
-    with open(join(dirname(api.root_path), 'Brandworkz - Python - CODE-TASK.md'), 'r') as readme:
+    with open(join(dirname(dirname(flask_api.root_path)), 'Brandworkz - Python - CODE-TASK.md'), 'r') as readme:
         md = markdown.markdown(readme.read())
     return md
 
-@api.route('/filedata/<int:extr_id>', methods=['GET'])
-def get_file_metadata(extr_id) -> dict:
+@flask_api.route('/file/<int:extr_id>', methods=['GET'])
+def file_metadata_endpoint(extr_id) -> dict:
     ''' Retrieves the resource at the given unique key from the filedata collection.
     
     Args:
         extr_id (int):
-            The unique key for a resource.
+            The unique key for a resource given to the resource at time of upload.
     
     Returns:
         payload (dict):
@@ -58,8 +59,8 @@ def get_file_metadata(extr_id) -> dict:
     payload = get_metadata(extr_id)
     return jsonify(payload)
 
-@api.route('/filedata', methods=['GET'])
-def get_metadata_query():
+@flask_api.route('/files', methods=['GET'])
+def metadata_query_endpoint():
     ''' Retrieves all resources in the filedata collection.
     
     Args:
@@ -78,11 +79,11 @@ def get_metadata_query():
 
     return jsonify(payload)
 
-@api.route('/upload', methods=['GET', 'POST'])
-def get_file_upload():
-    ''' Retrieves the file upload service.
-    
-    This end-point displays a web form to accept a local file path and returns the status of the POST request.
+@flask_api.route('/upload', methods=['GET', 'POST'])
+def file_upload_endpoint():
+    ''' Retrieves the file upload service wrapped in a POST-REDIRECT-GET pattern.
+
+    It displays a web form to accept a local file path and returns the status of the POST request.
     
     Args:
         None
@@ -91,10 +92,12 @@ def get_file_upload():
         (HTML):
             Upload page with the creation status.
     '''
-    print(request.form)
     if request.method == 'POST':
         path = request.form['path']
-        status = upload_file(path)
-        return render_template('upload.html', uploaded='Success! [201]' if status == 201 else 'No content: Path does not exist. [204]')
-
-    return render_template('upload.html')
+        extr_id, status = file_uploader(path)
+        if status == 201:
+            return redirect(url_for('file_metadata_endpoint', extr_id=extr_id))
+        else:
+            return render_template('upload.html', uploaded='No content: Path does not exist. [204]')
+    else:
+        return render_template('upload.html')

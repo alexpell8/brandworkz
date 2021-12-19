@@ -85,7 +85,7 @@ A HTML form for POSTing a file path has been selected for ease. A second GET que
 
 ## EXPANDING THE API
 ### End Points
-For production use the API would benefit from being version controlled (/api/v1/...) which would allow for backwards compatibility and beta versions for testing.
+For production use the API would benefit from being version controlled (/api/v1/...) which would allow for backwards compatibility and beta versions.
 
 ### Querying
 Opening up further query options such as;
@@ -99,14 +99,20 @@ Opening up further query options such as;
 
 or a combination of these filter examples.
 
+It is worth noting that for very large queries using multiple joins or chains there may be a performance improvement
+by using raw SQL rather than the ORM API.
+
 ### Storage
-The database choice would likely need to be reconsidered at much larger volumes however the transition is made much easier by the choice to use an ORM like SQLAlchemy.
+The database choice may need to be reconsidered at much larger volumes however the transition/migration is made much easier by the choice to use an ORM like SQLAlchemy.
 
 SQLAlchemy has been selected as an ORM aids in protection against SQL injection and provides a database agnostic solution. In this case a .db file has been used however SQLAlchemy makes migrating to other databases easy.
-Further on migration and upscaling, using a migration extension such as Flask-Migrate mitigates upscaling issues relating to expansion or modification of the database without having to re-ingest data.
+Further on migration and upscaling, using a migration extension such as Flask-Migrate mitigates upscaling issues relating to expansion or modification of the database schema without having to re-ingest data.
 
-If upscaling the upload business logic to handle batch processing to create assets in the database then the upload_file service should be refactored to detect for a list of paths, or other multi-file input, and this case the db commit should take place after all resources have been added. Care would need to be taken to catch unsuccessful additions such as paths that do not exist.
+### Architectural Design
+If upscaling the upload business logic to handle batch processing to create assets in the database then the upload_file service should be refactored to detect for a list of paths, or other multi-file input, and this case the uploading should be completed within one transaction. The trade-off of locking the database for sustained periods of time should be considered.
+Care would need to be taken to handle unsuccessful inserts/violations of domain logic such as paths that do not exist. We may not want to fail to upload N files if the N+1 file is invalid. Any unique file upload should fail independently in this case. This may prompt a refactor towards event-driven design such that an upload can be commanded and events can be raised and handled appropriately.
+
 
 ### Security
 The potential for storing personal data means that protection against threats like SQL injection is a priority. An ORM further protects/obscures the raw database queries.
-THe use of a API keys should also be considered so that a level of authorisation may take place.
+The use of a API keys should also be considered so that a level of authorisation may take place.
