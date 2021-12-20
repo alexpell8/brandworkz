@@ -1,5 +1,5 @@
 """
-api/routes.py
+api/views.py
 
 Contains the definitions for all of the end-points available to request.
 
@@ -13,6 +13,8 @@ from os.path import dirname, join
 from src.api import flask_api
 from src.service_layer.upload import file_uploader
 from src.service_layer.view_builder import get_metadata, get_metadata_collection, query_metadata_by_tag
+from src.orm_layer.orm import Transaction
+
 
 @flask_api.route('/')
 def root_endpoint() -> str:
@@ -29,6 +31,7 @@ def root_endpoint() -> str:
         md = markdown.markdown(readme.read())
     return md
 
+
 @flask_api.route('/task')
 def task_endpoint() -> str:
     ''' The API technical task information.
@@ -44,6 +47,7 @@ def task_endpoint() -> str:
         md = markdown.markdown(readme.read())
     return md
 
+
 @flask_api.route('/file/<int:extr_id>', methods=['GET'])
 def file_metadata_endpoint(extr_id) -> dict:
     ''' Retrieves the resource at the given unique key from the filedata collection.
@@ -56,12 +60,14 @@ def file_metadata_endpoint(extr_id) -> dict:
         payload (dict):
             The requested payload in JSON format.
     '''
-    payload = get_metadata(extr_id)
+    transaction = Transaction()
+    payload = get_metadata(extr_id, transaction)
     return jsonify(payload)
+
 
 @flask_api.route('/files', methods=['GET'])
 def metadata_query_endpoint():
-    ''' Retrieves all resources in the filedata collection.
+    ''' Retrieves all resources in the filedata collection and handles any query string arguments.
     
     Args:
         None
@@ -70,14 +76,16 @@ def metadata_query_endpoint():
         payload (dict):
             The requested payload in JSON format.
     '''
+    transaction = Transaction()
     if 'tag' not in request.args and 'value' not in request.args:
-        payload = get_metadata_collection()
+        payload = get_metadata_collection(transaction)
     else:
         tag = request.args['tag']
         value = request.args['value']
-        payload = query_metadata_by_tag(tag=tag, value=value)        
+        payload = query_metadata_by_tag(tag, value, transaction)        
 
     return jsonify(payload)
+
 
 @flask_api.route('/upload', methods=['GET', 'POST'])
 def file_upload_endpoint():
@@ -93,8 +101,9 @@ def file_upload_endpoint():
             Upload page with the creation status.
     '''
     if request.method == 'POST':
+        transaction = Transaction()
         path = request.form['path']
-        extr_id, status = file_uploader(path)
+        extr_id, status = file_uploader(path, transaction)
         if status == 201:
             return redirect(url_for('file_metadata_endpoint', extr_id=extr_id))
         else:
