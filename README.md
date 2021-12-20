@@ -5,6 +5,12 @@ The API requirements are stored in ["Brandworkz - Python CODE-TASK.md"](http://1
 
 ## USAGE
 
+To run the app;
+
+Use the requirements.txt provided
+Activate environment and navigate to brandworkz root folder.
+Call `python run_api.py`
+
 ### `GET /filedata/<int:extr_id>`
 GET the stored metadata for the extracted file with given extr_id.
 
